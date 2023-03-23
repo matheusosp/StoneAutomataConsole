@@ -1,6 +1,4 @@
-﻿using Microsoft.VisualBasic;
-
-internal class Program
+﻿internal class Program
 {
     private static (int i, int j) startingPoint;
     private static (int i, int j) endingPoint;
