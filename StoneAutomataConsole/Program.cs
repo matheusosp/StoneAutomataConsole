@@ -8,10 +8,10 @@ internal class Program
     private static void Main(string[] args)
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            Console.WriteLine(
+        Console.WriteLine(
             FindPath(Path.Combine(basePath, "input.txt"))
-            );
-        }
+        );
+    }
     static string FindPath(string filePath)
     {
         byte[,] m = ParseFile(filePath);
@@ -121,7 +121,7 @@ internal class Program
     {
         for (int i = 0; i <= iUpperBound; i++)
         {
-            SetGeneration(m, mr, i, 0, 
+            SetGeneration(m, mr, i, 0,
                 SlowPathScore(m, i, 0, iUpperBound, jUpperBound));
             SetGeneration(m, mr, i, jUpperBound,
                 SlowPathScore(m, i, jUpperBound, iUpperBound, jUpperBound));
@@ -135,10 +135,10 @@ internal class Program
         }
         //for (int i = 1; i < iUpperBound; i++)
         Parallel.For(1, iUpperBound, i =>
-        { 
+        {
             for (int j = 1; j < jUpperBound; j++)
             {
-                SetGeneration(m, mr, i, j, 
+                SetGeneration(m, mr, i, j,
                     m[i - 1, j - 1]
                     + m[i - 1, j]
                     + m[i - 1, j + 1]
