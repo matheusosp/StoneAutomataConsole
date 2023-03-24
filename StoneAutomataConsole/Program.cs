@@ -8,16 +8,10 @@ internal class Program
     private static void Main(string[] args)
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        for (int i = 0; i < 100; i++)
-        {
-            var sw = Stopwatch.StartNew();
             Console.WriteLine(
-                FindPath(Path.Combine(basePath, "input_l.txt"))
+            FindPath(Path.Combine(basePath, "input.txt"))
             );
-            sw.Stop();
-            Console.WriteLine(sw.Elapsed);
         }
-    }
     static string FindPath(string filePath)
     {
         byte[,] m = ParseFile(filePath);
