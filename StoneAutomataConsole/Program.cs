@@ -9,7 +9,7 @@ internal class Program
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
         Console.WriteLine(
-            FindPath(Path.Combine(basePath, "input.txt"))
+            FindPath(Path.Combine(basePath, "input_l.txt"))
         );
     }
     static string FindPath(string filePath)
@@ -33,7 +33,6 @@ internal class Program
         var final = new Context(null, ' ', endingPoint.i, endingPoint.j);
         //Console.WriteLine("Original");
         //Write(m);
-        Context[] directionsPreAllocated = new Context[4];
         int iUpperBound = m.GetUpperBound(0);
         int jUpperBound = m.GetUpperBound(1);
 
@@ -44,12 +43,7 @@ internal class Program
             foreach (var element in contexts)
             {
                 toBeRemoved.Add(element);
-                foreach (var possiblePath in PossiblePaths(element, mr, directionsPreAllocated,
-                    (i, j) => !toBeAdded.ContainsKey(HashCode.Combine(i, j)), iUpperBound, jUpperBound))
-                {
-                    toBeAdded.Add(possiblePath.GetHashCode(), possiblePath);
-                    iterations++;
-                }
+                AddPossiblePaths(element, mr, toBeAdded, iUpperBound, jUpperBound);
             }
             foreach (var element in toBeRemoved)
                 contexts.Remove(element);
@@ -94,21 +88,26 @@ internal class Program
         return string.Join(' ', reversed.Skip(1).Select(c => c.direction).ToArray());
     }
 
-    static Span<Context> PossiblePaths(Context context, byte[,] m, Context[] directions, Func<int, int, bool> shouldCreate, int iUpperBound, int jUpperBound)
+    static void AddPossiblePaths(Context context, byte[,] m, Dictionary<int, Context> destination, int iUpperBound, int jUpperBound)
     {
-        int count = 0;
         int i = context.i;
         int j = context.j;
+        int hashCode;
+        hashCode = HashCode.Combine(i - 1, j);
+        if (i > 0 && m[i - 1, j] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'U', i - 1, j));
 
-        if (i > 0 && m[i - 1, j] == 0 && shouldCreate(i - 1, j))
-            directions[count++] = new Context(context, 'U', i - 1, j);
-        if (j > 0 && m[i, j - 1] == 0 && shouldCreate(i, j - 1))
-            directions[count++] = new Context(context, 'L', i, j - 1);
-        if (i < iUpperBound && m[i + 1, j] == 0 && shouldCreate(i + 1, j))
-            directions[count++] = new Context(context, 'D', i + 1, j);
-        if (j < jUpperBound && m[i, j + 1] == 0 && shouldCreate(i, j + 1))
-            directions[count++] = new Context(context, 'R', i, j + 1);
-        return directions.AsSpan(0, count);
+        hashCode = HashCode.Combine(i, j - 1);
+        if (j > 0 && m[i, j - 1] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'L', i, j - 1));
+
+        hashCode = HashCode.Combine(i + 1, j);
+        if (i < iUpperBound && m[i + 1, j] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'D', i + 1, j));
+
+        hashCode = HashCode.Combine(i, j + 1);
+        if (j < jUpperBound && m[i, j + 1] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'R', i, j + 1));
     }
 
     static void Exchange(ref byte[,] m, ref byte[,] mr)
