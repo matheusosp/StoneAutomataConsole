@@ -1,49 +1,88 @@
-﻿using System.Diagnostics;
+﻿using StoneAutomataConsole;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 internal class Program
 {
     private static (int i, int j) startingPoint;
     private static (int i, int j) endingPoint;
-
+    private static volatile bool completed;
     private static void Main(string[] args)
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        Console.WriteLine(
-            FindPath(Path.Combine(basePath, "input_l.txt"))
-        );
+        for (int i = 0; i < 1; i++)
+        {
+            var sw = Stopwatch.StartNew();
+            Console.WriteLine(
+                FindPath(Path.Combine(basePath, "input_l.txt"))
+            );
+            sw.Stop();
+            Console.WriteLine(sw.Elapsed);
+        }
     }
+    private static void ProduceGenerations(object? obj)
+    {
+        if (obj is ProducerArguments arguments)
+        {
+            var m = arguments.InitialData;
+
+            int iUpperBound = m.GetUpperBound(0);
+            int jUpperBound = m.GetUpperBound(1);
+
+            int rows = iUpperBound + 1;
+            int columns = jUpperBound + 1;
+            while (!completed)
+            {
+                byte[,] mr = new byte[rows, columns];
+                NextGen(m, mr, iUpperBound, jUpperBound);
+
+                arguments.Collection.Add(mr);
+                var sleep = (arguments.Collection.Count / 64) * 100;
+                if (sleep > 0)
+                    Thread.Sleep(sleep);
+                Exchange(ref m, ref mr);
+            }
+            arguments.Collection.CompleteAdding();
+        }
+    }
+
     static string FindPath(string filePath)
     {
         byte[,] m = ParseFile(filePath);
-        int rows = m.GetUpperBound(0) + 1;
-        int columns = m.GetUpperBound(1) + 1;
-        byte[,] mr = new byte[rows, columns];
+        int iUpperBound = m.GetUpperBound(0);
+        int jUpperBound = m.GetUpperBound(1);
+
+        int rows = iUpperBound + 1;
+        int columns = jUpperBound + 1;
 
         m[startingPoint.i, startingPoint.j] = 0;
         m[endingPoint.i, endingPoint.j] = 0;
 
+        var collection = new BlockingCollection<byte[,]>(1024);
+        var producer = new Thread(ProduceGenerations);
+        producer.Start(new ProducerArguments(collection, m));
+
         Context? found = null;
         HashSet<Context> contexts = new HashSet<Context>(m.Length) {
-            new Context(null, ' ', startingPoint.i, startingPoint.j)
+            new Context(' ', startingPoint.i, startingPoint.j, startingPoint.i * columns + startingPoint.j)
         };
 
         List<Context> toBeRemoved = new List<Context>(m.Length);
         Dictionary<int, Context> toBeAdded = new Dictionary<int, Context>(m.Length);
 
-        var final = new Context(null, ' ', endingPoint.i, endingPoint.j);
+        var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * columns + endingPoint.j);
         //Console.WriteLine("Original");
         //Write(m);
-        int iUpperBound = m.GetUpperBound(0);
-        int jUpperBound = m.GetUpperBound(1);
-
-        int iterations = 0;
         for (int i = 0; i < int.MaxValue; i++)
         {
-            NextGen(m, mr, iUpperBound, jUpperBound);
+            var mr = collection.Take();
+            var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
             foreach (var element in contexts)
             {
                 toBeRemoved.Add(element);
-                AddPossiblePaths(element, mr, toBeAdded, iUpperBound, jUpperBound);
+                AddPossiblePaths(element, smr, toBeAdded, iUpperBound, jUpperBound);
             }
             foreach (var element in toBeRemoved)
                 contexts.Remove(element);
@@ -54,11 +93,15 @@ internal class Program
             if (contexts.TryGetValue(final, out found))
             {
                 Console.WriteLine("Found solution");
+                completed = true;
+
                 return WriteContext(found);
             }
             if (contexts.Count == 0)
             {
                 Console.WriteLine("Sem caminho possível");
+                completed = true;
+
                 return "";
             }
             //Console.WriteLine($"Iteration {i + 1}");
@@ -71,43 +114,45 @@ internal class Program
             //}
             //Console.SetCursorPosition(left, top);
             //Write(mr);
-
-            Exchange(ref m, ref mr);
         }
         Console.WriteLine("Caminho longe demais");
+        completed = true;
+        producer.Join();
         return "";
     }
-    static string WriteContext(Context found)
+
+    static string WriteContext(Context? found)
     {
         Stack<Context> reversed = new Stack<Context>();
-        do
+        while(found != null)
         {
             reversed.Push(found);
-            found = found.parent;
-        } while (found != null);
-        return string.Join(' ', reversed.Skip(1).Select(c => c.direction).ToArray());
+            found = found.Parent;
+        }
+        return string.Join(' ', reversed.Skip(1).Select(c => c.Direction).ToArray());
     }
 
-    static void AddPossiblePaths(Context context, byte[,] m, Dictionary<int, Context> destination, int iUpperBound, int jUpperBound)
+    static void AddPossiblePaths(Context context, Span<byte> sm, Dictionary<int, Context> destination, int iUpperBound, int jUpperBound)
     {
-        int i = context.i;
-        int j = context.j;
-        int hashCode;
-        hashCode = HashCode.Combine(i - 1, j);
-        if (i > 0 && m[i - 1, j] == 0 && !destination.ContainsKey(hashCode))
-            destination.Add(hashCode, new Context(context, 'U', i - 1, j));
+        int i = context.I;
+        int j = context.J;
 
-        hashCode = HashCode.Combine(i, j - 1);
-        if (j > 0 && m[i, j - 1] == 0 && !destination.ContainsKey(hashCode))
-            destination.Add(hashCode, new Context(context, 'L', i, j - 1));
+        int offset = context.Offset;
+        int hashCode = offset - jUpperBound - 1;
+        if (i > 0 && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'U', i - 1, j, hashCode));
 
-        hashCode = HashCode.Combine(i + 1, j);
-        if (i < iUpperBound && m[i + 1, j] == 0 && !destination.ContainsKey(hashCode))
-            destination.Add(hashCode, new Context(context, 'D', i + 1, j));
+        hashCode = offset - 1;
+        if (j > 0 && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'L', i, j - 1, hashCode));
 
-        hashCode = HashCode.Combine(i, j + 1);
-        if (j < jUpperBound && m[i, j + 1] == 0 && !destination.ContainsKey(hashCode))
-            destination.Add(hashCode, new Context(context, 'R', i, j + 1));
+        hashCode = offset + jUpperBound + 1;
+        if (i < iUpperBound && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'D', i + 1, j, hashCode));
+
+        hashCode = offset + 1;
+        if (j < jUpperBound && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'R', i, j + 1, hashCode));
     }
 
     static void Exchange(ref byte[,] m, ref byte[,] mr)
@@ -120,24 +165,35 @@ internal class Program
     {
         for (int i = 0; i <= iUpperBound; i++)
         {
-            SetGeneration(m, mr, i, 0,
+            mr[i, 0] = GetGeneration(m[i, 0],
                 SlowPathScore(m, i, 0, iUpperBound, jUpperBound));
-            SetGeneration(m, mr, i, jUpperBound,
+            mr[i, jUpperBound] = GetGeneration(m[i, jUpperBound],
                 SlowPathScore(m, i, jUpperBound, iUpperBound, jUpperBound));
         }
         for (int j = 0; j <= jUpperBound; j++)
         {
-            SetGeneration(m, mr, 0, j,
+            mr[0, j] = GetGeneration(m[0, j],
                 SlowPathScore(m, 0, j, iUpperBound, jUpperBound));
-            SetGeneration(m, mr, iUpperBound, j,
+            mr[iUpperBound, j] = GetGeneration(m[iUpperBound, j],
                 SlowPathScore(m, iUpperBound, j, iUpperBound, jUpperBound));
         }
-        //for (int i = 1; i < iUpperBound; i++)
-        Parallel.For(1, iUpperBound, i =>
+
+        int jLength = jUpperBound + 1;
+        var sm = MemoryMarshal.CreateSpan(ref m[0, 0], m.Length);
+        for (int i = 1; i < iUpperBound; i++)
+        //Parallel.For(1, iUpperBound, i =>
         {
-            for (int j = 1; j < jUpperBound; j++)
+            int baseOffset = i * jLength;
+            int j = 1;
+            for (; j < jUpperBound - 1; j++)
             {
-                SetGeneration(m, mr, i, j,
+                int offset = baseOffset + j;
+                mr[i, j] = GetGeneration(sm[offset],
+                    CountNeighbours(ref sm[offset], jLength)
+                );
+            }
+            if (j < jUpperBound)
+                mr[i, jUpperBound - 1] = GetGeneration(m[i, j],
                     m[i - 1, j - 1]
                     + m[i - 1, j]
                     + m[i - 1, j + 1]
@@ -146,19 +202,29 @@ internal class Program
                     + m[i + 1, j - 1]
                     + m[i + 1, j]
                     + m[i + 1, j + 1]);
-            }
         }
-        );
+        //);
         mr[startingPoint.i, startingPoint.j] = 0;
         mr[endingPoint.i, endingPoint.j] = 0;
     }
-
-    private static void SetGeneration(byte[,] m, byte[,] mr, int i, int j, int score)
+    
+    static ReadOnlySpan<byte> map => new byte[] { 
+        0, 0, 1, 1, 1, 0, 0, 0, 0,
+        0, 0, 0, 0, 1, 1, 0, 0, 0
+    };
+    static byte GetGeneration(byte currentValue, int score)
     {
-        if (m[i, j] == 1)
-            mr[i, j] = score > 3 && score < 6 ? (byte)1 : (byte)0;
-        else
-            mr[i, j] = score > 1 && score < 5 ? (byte)1 : (byte)0;
+        return map[currentValue * 9 + score];
+    }
+
+    static int CountNeighbours(ref byte s, int jLength)
+    {
+        uint mask = uint.MaxValue >> 8;
+        uint maskMiddle = mask ^ (255 << 8);
+
+        return (int)(uint.PopCount(Unsafe.As<byte, uint>(ref Unsafe.Add(ref s, - 1 - jLength)) & mask)
+            + uint.PopCount(Unsafe.As<byte, uint>(ref Unsafe.Add(ref s, - 1)) & maskMiddle)
+            + uint.PopCount(Unsafe.As<byte, uint>(ref Unsafe.Add(ref s, - 1 + jLength)) & mask));
     }
 
     private static int SlowPathScore(byte[,] m, int i, int j, int iUpperBound, int jUpperBound)
@@ -173,7 +239,6 @@ internal class Program
 
         if (j > 0)
             score += m[i, j - 1];
-        byte value = m[i, j];
         if (j < jUpperBound)
             score += m[i, j + 1];
 

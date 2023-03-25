@@ -1,25 +1,37 @@
-﻿public class Context : IEquatable<Context>
+﻿using System.Runtime.CompilerServices;
+
+public class Context : IEquatable<Context>
 {
-    public Context? parent;
-    public char direction;
-    public int i;
-    public int j;
-    public Context(Context? parent, char direction, int i, int j)
+    public readonly Context? Parent;
+    public readonly char Direction;
+    public readonly int I;
+    public readonly int J;
+    public readonly int Offset;
+    public Context(char direction, int i, int j, int offset)
+        : this(null, direction, i, j, offset)
+    { 
+    }
+    public Context(Context? parent, char direction, int i, int j, int offset)
     {
-        this.parent = parent;
-        this.direction = direction;
-        this.i = i;
-        this.j = j;
+        this.Parent = parent;
+        this.Direction = direction;
+        this.I = i;
+        this.J = j;
+        this.Offset = offset;
     }
 
     public bool Equals(Context other)
     {
-        return i == other.i
-        && j == other.j;
+        return Offset == other.Offset;
     }
 
     public override int GetHashCode()
     {
-        return HashCode.Combine(i, j);
+        return Offset;
+    }
+
+    public static int GetHashCode(int i, int j, int jLength)
+    {
+        return j + i * jLength;
     }
 }
