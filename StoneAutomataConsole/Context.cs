@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-public class Context : IEquatable<Context>
+﻿public class Context : IEquatable<Context>
 {
     public readonly Context? Parent;
     public readonly char Direction;
@@ -28,10 +26,5 @@ public class Context : IEquatable<Context>
     public override int GetHashCode()
     {
         return Offset;
-    }
-
-    public static int GetHashCode(int i, int j, int jLength)
-    {
-        return j + i * jLength;
     }
 }
