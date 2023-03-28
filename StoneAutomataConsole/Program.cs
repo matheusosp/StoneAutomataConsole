@@ -1,5 +1,4 @@
-﻿using System.Collections.Concurrent;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -9,11 +8,12 @@ internal class Program
     private static (int i, int j) endingPoint;
     private static void Main(string[] args)
     {
+
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        for (int i = 0; i < 1; i++)
+        for (int i = 0; i < 10; i++)
         {
             Console.WriteLine(
-                FindPath(Path.Combine(basePath, "input_l.txt"))
+                FindPath(Path.Combine(basePath, "input.txt"))
             );
         }
     }
@@ -37,19 +37,31 @@ internal class Program
             new Context(' ', startingPoint.i, startingPoint.j, startingPoint.i * columns + startingPoint.j)
         };
 
-        ConcurrentDictionary<int, Context> toBeAdded = new ConcurrentDictionary<int, Context>(14, m.Length);
+        //ConcurrentDictionary<int, Context> toBeAdded = new ConcurrentDictionary<int, Context>(3, m.Length);
+        Dictionary<int, Context> toBeAdded = new Dictionary<int, Context>(m.Length);
 
         byte[,] mr = new byte[rows, columns];
         int iter = 0;
         var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * columns + endingPoint.j);
         while (true)
         {
+            //var swStep = Stopwatch.StartNew();
             NextGen(m, mr, iUpperBound, jUpperBound);
-            Parallel.ForEach(contexts, new ParallelOptions { MaxDegreeOfParallelism = 14 }, element => {
-                var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
+            //swStep.Stop();
+            //Console.WriteLine($"NextGen elapsed {swStep.Elapsed}");
+            
+            //swStep = Stopwatch.StartNew();
+            //Parallel.ForEach(contexts, new ParallelOptions { MaxDegreeOfParallelism = 4 }, element =>
+            var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
+            foreach (var element in contexts)
+            {
                 // Current path is replaced by new paths
                 AddPossiblePaths(element, smr, toBeAdded, iUpperBound, jUpperBound);
-            });
+            }
+            //);
+            //swStep.Stop();
+            //Console.WriteLine($"AddPossiblePaths elapsed {swStep.Elapsed}");
+
             // Remove deadends and replaced paths
             contexts.Clear();
 
@@ -101,27 +113,30 @@ internal class Program
     /// <param name="destination"></param>
     /// <param name="iUpperBound"></param>
     /// <param name="jUpperBound"></param>
-    static void AddPossiblePaths(Context context, Span<byte> sm, ConcurrentDictionary<int, Context> destination, int iUpperBound, int jUpperBound)
+    static void AddPossiblePaths(Context context, Span<byte> sm,
+        //ConcurrentDictionary<int, Context> destination, 
+        Dictionary<int, Context> destination,
+        int iUpperBound, int jUpperBound)
     {
         int i = context.I;
         int j = context.J;
 
         int offset = context.Offset;
         int hashCode = offset - jUpperBound - 1;
-        if (i > 0 && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
-            destination.TryAdd(hashCode, new Context(context, 'U', i - 1, j, hashCode));
+        if (i > 1 && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'U', i - 1, j, hashCode));
 
         hashCode = offset - 1;
-        if (j > 0 && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
-            destination.TryAdd(hashCode, new Context(context, 'L', i, j - 1, hashCode));
+        if (j > 1 && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'L', i, j - 1, hashCode));
 
         hashCode = offset + jUpperBound + 1;
-        if (i < iUpperBound && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
-            destination.TryAdd(hashCode, new Context(context, 'D', i + 1, j, hashCode));
+        if (i < iUpperBound - 1&& sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'D', i + 1, j, hashCode));
 
         hashCode = offset + 1;
-        if (j < jUpperBound && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
-            destination.TryAdd(hashCode, new Context(context, 'R', i, j + 1, hashCode));
+        if (j < jUpperBound - 1 && sm[hashCode] == 0 && !destination.ContainsKey(hashCode))
+            destination.Add(hashCode, new Context(context, 'R', i, j + 1, hashCode));
     }
 
     static void Exchange(ref byte[,] m, ref byte[,] mr)
@@ -132,81 +147,23 @@ internal class Program
     }
     static void NextGen(byte[,] m, byte[,] mr, int iUpperBound, int jUpperBound)
     {
-        NextGenCornersSlowPath(m, mr, iUpperBound, jUpperBound);
-        
         int jLength = jUpperBound + 1;
-        var sm = MemoryMarshal.CreateSpan(ref m[0, 0], m.Length);
-        //Parallel.For(1, iUpperBound, new ParallelOptions { MaxDegreeOfParallelism = 14 }, i => 
-        for (int i = 1; i < iUpperBound; i++)
+        Parallel.For(1, iUpperBound, new ParallelOptions { MaxDegreeOfParallelism = 10 }, i => 
+        //for (int i = 1; i < iUpperBound; i++)
         {
-            int baseOffset = i * jLength;
-            int j = 1;
-            for (; j < jUpperBound - 1; j++)
+            ref byte currentResultRow = ref mr[i, 0];
+            ref byte currentRow = ref m[i, 0];
+            for (int j = 1; j < jUpperBound; j++)
             {
-                int offset = baseOffset + j;
-                mr[i, j] = GetGeneration(m[i, j],
-                    CountNeighbours(ref m[i, j], jLength)
+                ref byte current = ref Unsafe.Add(ref currentRow, j);
+                Unsafe.Add(ref currentResultRow, j) = GetGeneration(current,
+                    CountNeighbours(ref current, jLength)
                 );
             }
-            // Slow path last item
-            if (j < jUpperBound)
-            {
-                int offset = baseOffset + j;
-                mr[i, j] = GetGeneration(m[i, j],
-                    CountUpperLine(ref m[i, j], jLength)
-                    + CountMiddleLine(ref m[i, j])
-                    + m[i + 1, j - 1]
-                    + m[i + 1, j]
-                    + m[i + 1, j + 1]);
-            }
         }
-        //);
+        );
         mr[startingPoint.i, startingPoint.j] = 0;
         mr[endingPoint.i, endingPoint.j] = 0;
-    }
-
-    private static void NextGenCornersSlowPath(byte[,] m, byte[,] mr, int iUpperBound, int jUpperBound)
-    {
-        // Corner quadrants
-        mr[0, 0] = GetGeneration(m[0, 0],
-            m[0, 1]
-            + CountTwo(ref m[1, 0]));
-        mr[iUpperBound, 0] = GetGeneration(m[iUpperBound, 0],
-            CountTwo(ref m[iUpperBound - 1, 0])
-            + m[iUpperBound, 1]);
-        mr[0, jUpperBound] = GetGeneration(m[0, jUpperBound],
-            m[0, jUpperBound - 1]
-            + CountTwo(ref m[1, jUpperBound - 1]));
-        mr[iUpperBound, jUpperBound] = GetGeneration(m[iUpperBound, jUpperBound],
-            CountTwo(ref m[iUpperBound - 1, jUpperBound - 1])
-            + m[iUpperBound, jUpperBound - 1]);
-
-        for (int i = 1; i < iUpperBound; i++)
-        {
-            mr[i, 0] = GetGeneration(m[i, 0],
-                CountTwo(ref m[i - 1, 0])
-                + m[i, 1]
-                + CountTwo(ref m[i + 1, 0])
-            );
-            mr[i, jUpperBound] = GetGeneration(m[i, jUpperBound],
-                CountTwo(ref m[i - 1, jUpperBound - 1])
-                + m[i, jUpperBound - 1]
-                + CountTwo(ref m[i + 1, jUpperBound - 1]));
-        }
-        int jLength = jUpperBound + 1;
-        ref byte upper = ref m[iUpperBound, 0];
-        for (int j = 1; j < jUpperBound; j++)
-        {
-            ref byte currentLower = ref m[0, j];
-            mr[0, j] = GetGeneration(currentLower,
-                CountLowerLine(ref currentLower, jLength)
-                + CountMiddleLine(ref currentLower));
-
-            ref byte currentUpper = ref Unsafe.Add(ref upper, j);
-            mr[iUpperBound, j] = GetGeneration(currentUpper,
-                 CountUpperLine(ref currentUpper, jLength)
-                + CountMiddleLine(ref currentUpper));
-        }
     }
 
     static ReadOnlySpan<byte> map => new byte[] { 
@@ -233,53 +190,40 @@ internal class Program
     /// <param name="s"></param>
     /// <param name="jLength"></param>
     /// <returns></returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     static int CountNeighbours(ref byte s, int jLength)
     {
         return CountUpperLine(ref s, jLength)
             + CountMiddleLine(ref s)
             + CountLowerLine(ref s, jLength);
     }
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
 
     private static int CountMiddleLine(ref byte s)
     {
         return CountDonutLine(ref Unsafe.Add(ref s, -1));
     }
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
 
     private static int CountLowerLine(ref byte s, int jLength)
     {
         return CountCompleteLine(ref Unsafe.Add(ref s, -1 + jLength));
     }
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
 
     private static int CountUpperLine(ref byte s, int jLength)
     {
         return CountCompleteLine(ref Unsafe.Add(ref s, -1 - jLength));
     }
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int CountCompleteLine(ref byte s)
     {
         const uint mask = 0x00_FF_FF_FF;
-        ref uint r = ref Unsafe.As<byte, uint>(ref s);
-        uint result = uint.PopCount(r & mask);
-        return (int)result;
+        return (int)uint.PopCount(
+            Unsafe.As<byte, uint>(ref s) & mask);
     }
 
-    private static int CountTwo(ref byte s)
-    {
-        ref ushort r = ref Unsafe.As<byte, ushort>(ref s);
-        uint result = ushort.PopCount(r);
-        return (int)result;
-    }
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int CountDonutLine(ref byte s)
     {
         const uint mask = 0x00_FF_00_FF;
-        uint result = uint.PopCount(Unsafe.As<byte, uint>(ref s) & mask);
-        return (int)result;
+        return (int)uint.PopCount(Unsafe.As<byte, uint>(ref s) & mask);
     }
 
     static byte[,] ParseFile(string filePath)
@@ -287,19 +231,19 @@ internal class Program
         var file = File.ReadAllLines(filePath);
         int rows = file.Length;
         int columns = file.First().Split(' ', StringSplitOptions.RemoveEmptyEntries).Length;
-        byte[,] m = new byte[rows, columns];
+        byte[,] m = new byte[rows + 2, columns + 2];
         for (int i = 0; i < rows; i++)
         {
             string[] data = file[i].Split(' ');
             for (int j = 0; j < columns; j++)
             {
-                switch (m[i, j] = byte.Parse(data[j]))
+                switch (m[i + 1, j + 1] = byte.Parse(data[j]))
                 {
                     case 3:
-                        startingPoint = (i, j);
+                        startingPoint = (i + 1, j + 1);
                         break;
                     case 4:
-                        endingPoint = (i, j);
+                        endingPoint = (i + 1, j + 1);
                         break;
                 }
             }
