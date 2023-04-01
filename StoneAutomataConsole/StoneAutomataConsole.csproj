@@ -9,5 +9,11 @@
 	<PublishAot>true</PublishAot>
 	<ServerGarbageCollection>true</ServerGarbageCollection>
 	<ConcurrentGarbageCollection>true</ConcurrentGarbageCollection>
+	<InvariantGlobalization>true</InvariantGlobalization>
+	<IlcGenerateStackTraceData>false</IlcGenerateStackTraceData>
+	<IlcOptimizationPreference>Speed</IlcOptimizationPreference>
+	<EventSourceSupport>false</EventSourceSupport>
+	<UseSystemResourceKeys>false</UseSystemResourceKeys>
+	<PublishTrimmed>true</PublishTrimmed>
   </PropertyGroup>
 </Project>
