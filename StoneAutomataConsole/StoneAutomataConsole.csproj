@@ -15,5 +15,6 @@
 	<EventSourceSupport>false</EventSourceSupport>
 	<UseSystemResourceKeys>false</UseSystemResourceKeys>
 	<PublishTrimmed>true</PublishTrimmed>
+	<IlcInstructionSet>avx2,bmi2,fma,pclmul,popcnt,aes</IlcInstructionSet>
   </PropertyGroup>
 </Project>
