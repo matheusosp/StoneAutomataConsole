@@ -17,7 +17,7 @@ internal class Program
     private static void Main(string[] args)
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(basePath, "input1.txt");
+        string filePath = Path.Combine(basePath, "input.txt");
         string result = null;
         Stopwatch sw = new Stopwatch();
         long sum = 0;

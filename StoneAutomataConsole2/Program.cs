@@ -17,7 +17,7 @@ internal class Program
     private static void Main(string[] args)
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(basePath, "input2.txt");
+        string filePath = Path.Combine(basePath, "maze_03.txt");
         string result = null;
         Stopwatch sw = new Stopwatch();
         long sum = 0;
@@ -124,13 +124,17 @@ internal class Program
     }
     static string ExtractSteps(Context? found)
     {
-        Stack<Context> reversed = new Stack<Context>(512);
+        //Stack<string> reversed = new Stack<string>(512);
+        Stack<char> reversed = new Stack<char>(512);
         while (found != null)
         {
-            reversed.Push(found);
+            //reversed.Push(found.Parent is Context c && c.Lives == found.Lives 
+            //    ? found.Direction.ToString() 
+            //    : string.Concat(found.Direction, '*'));
+            reversed.Push(found.Direction);
             found = found.Parent;
         }
-        var result = reversed.Skip(1).Select(c => c.Direction).ToArray();
+        var result = reversed.Skip(1).ToArray();
         return string.Join(' ', result);
     }
     //static string ExtractSteps(Context? found)
