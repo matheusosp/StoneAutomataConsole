@@ -2,6 +2,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 internal class Program
@@ -17,7 +18,7 @@ internal class Program
     private static void Main(string[] args)
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(basePath, "input1.txt");
+        string filePath = Path.Combine(basePath, "input2.txt");
         string result = null;
         Stopwatch sw = new Stopwatch();
         long sum = 0;
@@ -43,6 +44,7 @@ internal class Program
 
     static string FindPath(byte[,] m)
     {
+        int lives = 6;
         string last = null;
         int solutions = 0;
         int iLength = m.GetUpperBound(0) + 1;
@@ -63,7 +65,6 @@ internal class Program
         byte[,] mr = new byte[iLength, jLength];
         var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
         //var source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-        //int step = 0;
         while (true)
         {
             NextGen(m, mr, jLength);
@@ -71,6 +72,9 @@ internal class Program
             var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
 
             var s = CollectionsMarshal.AsSpan(contexts);
+            //var max = contexts.Max(c => c.J + c.I);
+            //var min = contexts.Min(c => c.J + c.I);
+            //Console.WriteLine($"Avg: {avg}, Max: {max}, Min: {min}");
             for (int i = 0; i < s.Length; i++)
             {
                 var element = s[i];
@@ -89,10 +93,17 @@ internal class Program
                 //    source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
                 //}
             }
+            if (toBeAddedIndex.Count == 0)
+            {
+                var avg = contexts.Average(c => c.J + c.I);
+                foreach (var context in contexts.Where(c => c.I + c.J >= avg))
+                {
+                    AddFrontPossiblePaths(context, toBeAdded, toBeAddedIndex, ref lives, jLength);
+                }
+            }
             // Remove deadends and replaced paths
             contexts.Clear();
 
-            //step++;
             // Add new paths
             foreach (var index in toBeAddedIndex)
             {
@@ -103,7 +114,11 @@ internal class Program
             }
             toBeAddedIndex.Clear();
             
-
+            if (contexts.Count > 10)
+            {
+                var avg = contexts.Average(c => c.J + c.I);
+                contexts.RemoveAll(c => c.J + c.I < avg);
+            }
             // No more paths to take
             if (contexts.Count == 0)
             {
@@ -118,6 +133,7 @@ internal class Program
             Swap(ref m, ref mr);
         }
     }
+
     static string ExtractSteps(Context? found)
     {
         Stack<Context> reversed = new Stack<Context>(512);
@@ -149,6 +165,45 @@ internal class Program
     //        });
     //}
 
+    static void AddFrontPossiblePaths(Context context,
+        Context?[] destination,
+        List<int> destinationIndex,
+        ref int lives,
+        int jLength)
+    {
+        if (context.I < context.J)
+        {
+            int hashCode = context.Offset + jLength;
+            if (context.I < endingBound.i)
+            {
+                Console.WriteLine("Life spent - D");
+                lives--;
+                ref Context? item = ref destination[hashCode];
+                if (item == null)
+                {
+                    destinationIndex.Add(hashCode);
+                    item = new Context(context, 'D', context.I + 1, context.J, hashCode);
+                }
+                return;
+            }
+        }
+        else
+        {
+            int hashCode = context.Offset + 1;
+            if (context.J < endingBound.j)
+            {
+                Console.WriteLine("Life spent - R");
+                lives--;
+                ref Context? item = ref destination[hashCode];
+                if (item == null)
+                {
+                    destinationIndex.Add(hashCode);
+                    item = new Context(context, 'R', context.I, context.J + 1, hashCode);
+                }
+                return;
+            }
+        }
+    }
     /// <summary>
     /// Add possible paths if is white path, not cornered and not redundant
     /// Other path is already in this same coordinate
@@ -159,7 +214,6 @@ internal class Program
     /// <param name="iUpperBound"></param>
     /// <param name="jUpperBound"></param>
     static void AddPossiblePaths(Context context, Span<byte> sm,
-        //ConcurrentDictionary<int, Context> destination, 
         Context?[] destination,
         List<int> destinationIndex,
         int jLength)
@@ -213,6 +267,7 @@ internal class Program
             }
         }
     }
+
 
     static void Swap(ref byte[,] m, ref byte[,] mr)
     {
