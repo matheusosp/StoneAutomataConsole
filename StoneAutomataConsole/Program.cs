@@ -2,7 +2,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Text;
 
 internal class Program
 {
@@ -14,10 +13,10 @@ internal class Program
     
     private static byte[] mask;
 
-    private static void Main(string[] args)
+    private static void Main(string[] args) 
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(basePath, "input.txt");
+        string filePath = Path.Combine(basePath, "input3.txt");
         string result = null;
         Stopwatch sw = new Stopwatch();
         long sum = 0;
@@ -220,132 +219,8 @@ internal class Program
         m = mr;
         mr = tmp;
     }
-    //static void NextGen(byte[,] m, byte[,] mr, int jLength)
-    //{
-    //    var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
-    //    smr.Fill(0);
-    //    var sm = MemoryMarshal.CreateSpan(ref m[0, 0], m.Length);
-    //    (int iFirstIndex, int jFirstIndex) = int.DivRem(sm.IndexOf((byte)1) - 1 - jLength, jLength);
-    //    (int iLastIndex, int jLastIndex) = int.DivRem(sm.LastIndexOf((byte)1) + 1 + jLength, jLength);
-    //    {
-    //        iLastIndex = Math.Min(endingBound.i, iLastIndex);
-    //        int i = Math.Max(startingBound.i, iFirstIndex);
-    //        int j = Math.Max(startingBound.j, jFirstIndex);
-    //        for (; i <= iLastIndex; i++)
-    //        {
-    //            ref byte currentResultRow = ref mr[i, 0];
-    //            ref byte currentRow = ref m[i, 0];
-    //            for (; j <= jLastIndex; j += Vector<byte>.Count)
-    //            {
-    //                ref Vector<byte> currentV = ref Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentRow, j));
-    //                ref byte currentResult = ref Unsafe.Add(ref currentResultRow, j);
-
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, -1 - jLength)) += currentV;
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, -jLength)) += currentV;
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, 1 - jLength)) += currentV;
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, -1)) += currentV;
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, 1)) += currentV;
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, -1 + jLength)) += currentV;
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, jLength)) += currentV;
-    //                Unsafe.As<byte, Vector<byte>>(
-    //                    ref Unsafe.Add(ref currentResult, 1 + jLength)) += currentV;
-    //            }
-    //            j = startingBound.j;
-    //            jLastIndex = endingBound.j;
-    //        }
-    //    }
-    //    for (int i = startingBound.i; i <= endingBound.i; i++)
-    //    {
-    //        ref byte currentResultRow = ref mr[i, 0];
-    //        ref byte currentRow = ref m[i, 0];
-    //        int j = startingBound.j;
-    //        for (; j < endingBound.j - Vector<byte>.Count; j += Vector<byte>.Count)
-    //        {
-    //            ref Vector<byte> current = ref Unsafe.As<byte, Vector<byte>>(
-    //                ref Unsafe.Add(ref currentRow, j));
-    //            ref Vector<byte> currentR = ref Unsafe.As<byte, Vector<byte>>(
-    //                ref Unsafe.Add(ref currentResultRow, j));
-
-    //            currentR = Vector.Negate(
-    //                Vector.ConditionalSelect(
-    //                    Vector.Negate(current),
-    //                    Vector.BitwiseAnd(
-    //                        Vector.GreaterThan(currentR, new Vector<byte>(3)),
-    //                        Vector.LessThan(currentR, new Vector<byte>(6))
-    //                    ),
-    //                    Vector.BitwiseAnd(
-    //                        Vector.GreaterThan(currentR, Vector<byte>.One),
-    //                        Vector.LessThan(currentR, new Vector<byte>(5))
-    //                    )
-    //                )
-    //            );
-    //        }
-
-    //        ref Vector<byte> currentV = ref Unsafe.As<byte, Vector<byte>>(
-    //            ref Unsafe.Add(ref currentRow, j));
-    //        ref Vector<byte> currentResult = ref Unsafe.As<byte, Vector<byte>>(
-    //            ref Unsafe.Add(ref currentResultRow, j));
-
-    //        currentResult = Vector.Negate(
-    //            Vector.BitwiseAnd(
-    //                Vector.ConditionalSelect(
-    //                    Vector.Negate(currentV),
-    //                    Vector.BitwiseAnd(
-    //                        Vector.GreaterThan(currentResult, new Vector<byte>(3)),
-    //                        Vector.LessThan(currentResult, new Vector<byte>(6))
-    //                    ),
-    //                    Vector.BitwiseAnd(
-    //                        Vector.GreaterThan(currentResult, Vector<byte>.One),
-    //                        Vector.LessThan(currentResult, new Vector<byte>(5))
-    //                    )
-    //                ),
-    //                new Vector<byte>(mask)
-    //            )
-    //        );
-    //    }
-    //    mr[startingPoint.i, startingPoint.j] = 0;
-    //    mr[endingPoint.i, endingPoint.j] = 0;
-    //}
     static void NextGen(byte[,] m, byte[,] mr, int jLength)
     {
-        var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
-        smr.Fill(0);
-        for (int i = startingBound.i; i <= endingBound.i; i++)
-        {
-            ref byte currentResultRow = ref mr[i, 0];
-            ref byte currentRow = ref m[i, 0];
-            for (int j = startingBound.j; j <= endingBound.j; j += Vector<byte>.Count)
-            {
-                ref Vector<byte> currentV = ref Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentRow, j));
-                ref byte currentResult = ref Unsafe.Add(ref currentResultRow, j);
-
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, -1 - jLength)) += currentV;
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, -jLength)) += currentV;
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, 1 - jLength)) += currentV;
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, -1)) += currentV;
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, 1)) += currentV;
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, -1 + jLength)) += currentV;
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, jLength)) += currentV;
-                Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResult, 1 + jLength)) += currentV;
-            }
-        }
         for (int i = startingBound.i; i <= endingBound.i; i++)
         {
             ref byte currentResultRow = ref mr[i, 0];
@@ -353,47 +228,60 @@ internal class Program
             int j = startingBound.j;
             for (; j < endingBound.j - Vector<byte>.Count; j += Vector<byte>.Count)
             {
-                ref Vector<byte> current = ref Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentRow, j));
-                ref Vector<byte> currentR = ref Unsafe.As<byte, Vector<byte>>(
-                    ref Unsafe.Add(ref currentResultRow, j));
+                Vector<byte> neighbours 
+                    = Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - 1 - jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + 1 - jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - 1))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + 1))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - 1 + jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + 1 + jLength));
 
-                currentR = Vector.Negate(
+                Unsafe.As<byte, Vector<byte>>(
+                    ref Unsafe.Add(ref currentResultRow, j)) = Vector.Negate(
                     Vector.ConditionalSelect(
-                        Vector.Negate(current),
+                        Vector.Negate(Unsafe.As<byte, Vector<byte>>(
+                            ref Unsafe.Add(ref currentRow, j))),
                         Vector.BitwiseAnd(
-                            Vector.GreaterThan(currentR, new Vector<byte>(3)),
-                            Vector.LessThan(currentR, new Vector<byte>(6))
+                            Vector.GreaterThan(neighbours, new Vector<byte>(3)),
+                            Vector.LessThan(neighbours, new Vector<byte>(6))
                         ),
                         Vector.BitwiseAnd(
-                            Vector.GreaterThan(currentR, Vector<byte>.One),
-                            Vector.LessThan(currentR, new Vector<byte>(5))
+                            Vector.GreaterThan(neighbours, Vector<byte>.One),
+                            Vector.LessThan(neighbours, new Vector<byte>(5))
                         )
                     )
                 );
             }
-
-            ref Vector<byte> currentV = ref Unsafe.As<byte, Vector<byte>>(
-                ref Unsafe.Add(ref currentRow, j));
-            ref Vector<byte> currentResult = ref Unsafe.As<byte, Vector<byte>>(
-                ref Unsafe.Add(ref currentResultRow, j));
-
-            currentResult = Vector.Negate(
-                Vector.BitwiseAnd(
-                    Vector.ConditionalSelect(
-                        Vector.Negate(currentV),
-                        Vector.BitwiseAnd(
-                            Vector.GreaterThan(currentResult, new Vector<byte>(3)),
-                            Vector.LessThan(currentResult, new Vector<byte>(6))
+            {
+                Vector<byte> neighbours
+                    = Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - 1 - jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + 1 - jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - 1))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + 1))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j - 1 + jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + jLength))
+                    + Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j + 1 + jLength));
+                Unsafe.As<byte, Vector<byte>>(
+                    ref Unsafe.Add(ref currentResultRow, j)) = Vector.Negate(
+                    Vector.BitwiseAnd(
+                        Vector.ConditionalSelect(
+                            Vector.Negate(Unsafe.As<byte, Vector<byte>>(ref Unsafe.Add(ref currentRow, j))),
+                            Vector.BitwiseAnd(
+                                Vector.GreaterThan(neighbours, new Vector<byte>(3)),
+                                Vector.LessThan(neighbours, new Vector<byte>(6))
+                            ),
+                            Vector.BitwiseAnd(
+                                Vector.GreaterThan(neighbours, Vector<byte>.One),
+                                Vector.LessThan(neighbours, new Vector<byte>(5))
+                            )
                         ),
-                        Vector.BitwiseAnd(
-                            Vector.GreaterThan(currentResult, Vector<byte>.One),
-                            Vector.LessThan(currentResult, new Vector<byte>(5))
-                        )
-                    ),
-                    new Vector<byte>(mask)
-                )
-            );
+                        new Vector<byte>(mask)
+                    )
+                );
+            }
         }
         mr[startingPoint.i, startingPoint.j] = 0;
         mr[endingPoint.i, endingPoint.j] = 0;
