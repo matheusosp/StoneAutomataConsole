@@ -16,13 +16,13 @@ internal class Program
     private static void Main(string[] args) 
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(basePath, "input.txt");
+        string filePath = Path.Combine(basePath, "input4.txt");
         string result = null;
         Stopwatch sw = new Stopwatch();
         long sum = 0;
         long min = long.MaxValue;
         long max = long.MinValue;
-        int loop = 1000;
+        int loop = 1;
         byte[,] m = null;
         for (int i = 0; i < loop; i++)
         {
@@ -55,7 +55,8 @@ internal class Program
 
         Context?[] toBeAdded = new Context?[m.Length];
         List<int> toBeAddedIndex = new List<int>(m.Length);
-
+        
+        Context? last = null;
         byte[,] mr = new byte[iLength, jLength];
         var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
         while (true)
@@ -81,6 +82,10 @@ internal class Program
             {
                 var element = toBeAdded[index];
                 contexts.Add(element);
+                if (last == null)
+                    last = element;
+                else if (last.I + last.J < element.I + element.J)
+                    last = element;
                 toBeAdded[index] = null;
             }
             toBeAddedIndex.Clear();
@@ -89,6 +94,8 @@ internal class Program
             if (contexts.Count == 0)
             {
                 Console.WriteLine("Impossible maze");
+                if(last != null)
+                    return ExtractSteps(last);
                 return "";
             }
             Swap(ref m, ref mr);

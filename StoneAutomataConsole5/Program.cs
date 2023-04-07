@@ -16,20 +16,35 @@ internal class Program
     private static void Main(string[] args) 
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(basePath, "input.txt");
+        string filePath = Path.Combine(basePath, "input5.txt");
         string result = null;
         Stopwatch sw = new Stopwatch();
         long sum = 0;
         long min = long.MaxValue;
         long max = long.MinValue;
-        int loop = 1000;
+        int loop = 1;
         byte[,] m = null;
+        int steps = 49990;
         for (int i = 0; i < loop; i++)
         {
             m = ParseFile(filePath);
             GC.Collect();
             sw.Restart();
-            result = FindPath(m);
+            var context = FindContext(m, steps);
+            m = ParseFile(filePath);
+            var stat = ExtractStatistics(context, m);
+            Console.WriteLine(stat.Boards.Count);
+            for (int generation = 2; generation < stat.Boards.Count; generation++)
+            {
+                TryAppendIncrementalContext(generation, stat);
+            }
+            using (var output = File.CreateText(Path.Combine(basePath, "output5.txt")))
+            {
+                foreach (var item in stat.Paths)
+                {
+                    output.WriteLine(item);
+                }
+            }
             sw.Stop();
             sum += sw.ElapsedTicks;
             min = long.Min(min, sw.ElapsedTicks);
@@ -40,8 +55,10 @@ internal class Program
         Console.WriteLine($"Steps ({result.Split(' ').Length}): {result}");
     }
 
-    static string FindPath(byte[,] m)
+    static Context FindContext(byte[,] m, int steps)
     {
+        string last = null;
+        int solutions = 0;
         int iLength = m.GetUpperBound(0) + 1;
         int jLength = m.GetUpperBound(1) + 1;
 
@@ -50,18 +67,22 @@ internal class Program
 
         List<Context> contexts = new List<Context>(m.Length / 4)
         { 
-            new Context(' ', startingPoint.i, startingPoint.j, startingPoint.i * jLength + startingPoint.j)
+            new Context(0, ' ', startingPoint.i, startingPoint.j, startingPoint.i * jLength + startingPoint.j)
         };
 
+        //ConcurrentDictionary<int, Context> toBeAdded = new ConcurrentDictionary<int, Context>(3, m.Length);
         Context?[] toBeAdded = new Context?[m.Length];
         List<int> toBeAddedIndex = new List<int>(m.Length);
 
         byte[,] mr = new byte[iLength, jLength];
-        var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
+        var final = new Context(0, ' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
+        //var source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        //int step = 0;
         while (true)
         {
             NextGen(m, mr, jLength);
-            var smr = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetArrayDataReference(mr), mr.Length);
+            //Parallel.ForEach(contexts, new ParallelOptions { MaxDegreeOfParallelism = 4 }, element =>
+            var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
             var s = CollectionsMarshal.AsSpan(contexts);
             for (int i = 0; i < s.Length; i++)
             {
@@ -69,16 +90,27 @@ internal class Program
                 // Current path is replaced by new paths
                 AddPossiblePaths(element, smr, toBeAdded, toBeAddedIndex, jLength);
             }
+            //);
+            // if touched final destination, solution is found
             if (toBeAdded[final.Offset] is Context found)
             {
-                return ExtractSteps(found);
+                if (Count(found) >= steps)
+                    return found;
+                //if(source.IsCancellationRequested)
+                //{
+                //    last = ExtractSteps(found);
+                //    Console.WriteLine($"Solution: {last} ({last.Length})");
+                //    source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+                //}
             }
             // Remove deadends and replaced paths
             contexts.Clear();
 
+            //step++;
             // Add new paths
             foreach (var index in toBeAddedIndex)
             {
+                //Console.WriteLine($"Step: {step} - {ExtractSteps(element.Value)}");
                 var element = toBeAdded[index];
                 contexts.Add(element);
                 toBeAdded[index] = null;
@@ -89,22 +121,141 @@ internal class Program
             if (contexts.Count == 0)
             {
                 Console.WriteLine("Impossible maze");
-                return "";
+                return null;
             }
             Swap(ref m, ref mr);
         }
     }
-    static string ExtractSteps(Context? found)
+
+    static bool TryAppendIncrementalContext(int initial, ContextStatistics statistics)
     {
-        Stack<char> reversed = new Stack<char>(512);
+        var m = statistics.Boards[initial];
+        if (m[0, 0] == 1)
+            return false;
+        int jLength = m.GetUpperBound(1) + 1;
+        List<Context> contexts = new List<Context>(statistics.Boards.Count)
+        {
+            new Context(initial, ' ', startingPoint.i, startingPoint.j, startingPoint.i * jLength + startingPoint.j)
+        };
+        var final = new Context(0, ' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
+
+        Context?[] toBeAdded = new Context?[m.Length];
+        List<int> toBeAddedIndex = new List<int>(m.Length);
+        Context? last = null;
+        for (int boardIndex = initial; boardIndex < statistics.Boards.Count; boardIndex++)
+        {
+            var mr = statistics.Boards[boardIndex];
+            var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
+            var s = CollectionsMarshal.AsSpan(contexts);
+            for (int i = 0; i < s.Length; i++)
+            {
+                var element = s[i];
+                // Current path is replaced by new paths
+                AddPossiblePaths(element, smr, toBeAdded, toBeAddedIndex, jLength);
+            }
+            if (toBeAdded[final.Offset] != null)
+            {
+                last = toBeAdded[final.Offset];
+                break;
+            }
+            if (toBeAddedIndex.Count == 0 || boardIndex == statistics.Boards.Count - 1)
+            {
+                last = contexts.First();
+                break;
+            }
+            contexts.Clear();
+            foreach (var index in toBeAddedIndex)
+            {
+                var element = toBeAdded[index];
+                contexts.Add(element);
+                toBeAdded[index] = null;
+            }
+            toBeAddedIndex.Clear();
+        }
+        if (last != null)
+        {
+            FillStatistics(statistics, last);
+            return true;
+        }
+        return false;
+    }
+    static int Count(Context? found)
+    {
+        int count = 0;
         while (found != null)
         {
-            reversed.Push(found.Direction);
+            count++;
             found = found.Parent;
         }
-        var result = reversed.Skip(1).ToArray();
-        return string.Join(' ', result);
+        return count;
     }
+    static void FillStatistics(ContextStatistics statistics, Context? found)
+    {
+        Stack<Context> reversed = new Stack<Context>(512);
+        var initial = found;
+        while (found != null)
+        {
+            reversed.Push(found);
+            found = found.Parent;
+        }
+        if (reversed.Count > 1)
+        {
+            string path = initial.Generation.ToString()
+                + " "
+                + string.Join(' ', reversed.Skip(1).Select(c => c.Direction).ToArray());
+            statistics.Paths.Add(path);
+            var initialGeneration = initial.Generation;
+            while (reversed.TryPop(out Context popped))
+            {
+                statistics.Boards[initialGeneration++][popped.I, popped.J] = 1;
+            }
+        }
+    }
+    static ContextStatistics ExtractStatistics(Context? found, byte[,] initialBoard)
+    {
+        Stack<Context> reversed = new Stack<Context>(512);
+        var initial = found;
+        while (found != null)
+        {
+            reversed.Push(found);
+            found = found.Parent;
+        }
+        ContextStatistics statistics = new ContextStatistics();
+        statistics.Paths.Add(initial.Generation.ToString() 
+            + " " 
+            + string.Join(' ', reversed.Skip(1).Select(c => c.Direction).ToArray()));
+
+        byte[,] board = initialBoard;
+        int jLength = board.GetUpperBound(1) + 1;
+        while (reversed.TryPop(out Context popped))
+        {
+            statistics.Boards.Add(board);
+            var next = new byte[board.GetUpperBound(0) + 1, board.GetUpperBound(1) + 1];
+            NextGen(board, next, jLength);
+            board[popped.I, popped.J] = 1;
+            board = next;
+        }
+        return statistics;
+    }
+    //static string ExtractSteps(Context? found)
+    //{
+    //    Context? initial = found;
+    //    int length = 0;
+    //    while(found != null)
+    //    {
+    //        length++;
+    //        found = found.Parent;
+    //    }
+    //    return string.Create(length - 1, initial, 
+    //        static (span, state) => {
+    //            int length = span.Length;
+    //            for (int i = span.Length - 1; i >= 0; i--)
+    //            {
+    //                span[i] = state.Direction;
+    //                state = state.Parent;
+    //            }
+    //        });
+    //}
 
     /// <summary>
     /// Add possible paths if is white path, not cornered and not redundant
@@ -116,6 +267,7 @@ internal class Program
     /// <param name="iUpperBound"></param>
     /// <param name="jUpperBound"></param>
     static void AddPossiblePaths(Context context, Span<byte> sm,
+        //ConcurrentDictionary<int, Context> destination, 
         Context?[] destination,
         List<int> destinationIndex,
         int jLength)
@@ -169,7 +321,6 @@ internal class Program
             }
         }
     }
-
     static void Swap(ref byte[,] m, ref byte[,] mr)
     {
         var tmp = m;
