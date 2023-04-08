@@ -56,13 +56,13 @@ internal class Program
             new Context(' ', startingPoint.i, startingPoint.j, startingPoint.i * jLength + startingPoint.j)
         };
 
-        //ConcurrentDictionary<int, Context> toBeAdded = new ConcurrentDictionary<int, Context>(3, m.Length);
         Context?[] toBeAdded = new Context?[m.Length];
         List<int> toBeAddedIndex = new List<int>(m.Length);
 
         byte[,] mr = new byte[iLength, jLength];
         var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
-        //var source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
+        int diagonal = (int)(Math.Sqrt(Math.Pow(endingPoint.i + 1, 2) + Math.Pow(endingPoint.j + 1, 2)) * 1.5);
+        int step = 0;
         while (true)
         {
             NextGen(m, mr, jLength);
@@ -82,17 +82,10 @@ internal class Program
                 // Current path is replaced by new paths
                 AddLifeConsumingPossiblePaths(element, smr, toBeAdded, toBeAddedIndex, jLength);
             }
-            //);
             // if touched final destination, solution is found
             if (toBeAdded[final.Offset] is Context found)
             {
                 return ExtractSteps(found);
-                //if(source.IsCancellationRequested)
-                //{
-                //    last = ExtractSteps(found);
-                //    Console.WriteLine($"Solution: {last} ({last.Length})");
-                //    source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-                //}
             }
             // Remove deadends and replaced paths
             contexts.Clear();
@@ -100,14 +93,19 @@ internal class Program
             // Add new paths
             foreach (var index in toBeAddedIndex)
             {
-                //Console.WriteLine($"Step: {step} - {ExtractSteps(element.Value)}");
                 var element = toBeAdded[index];
                 contexts.Add(element);
                 toBeAdded[index] = null;
             }
             toBeAddedIndex.Clear();
 
-
+            step++;
+            if (contexts.Count > diagonal)
+            {
+                var itens = contexts.OrderByDescending(c => c.J + c.I).Skip(diagonal).ToArray();
+                foreach (var item in itens)
+                    contexts.Remove(item);
+            }
             // No more paths to take
             if (contexts.Count == 0)
             {

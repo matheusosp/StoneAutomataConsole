@@ -56,12 +56,11 @@ internal class Program
             new Context(' ', startingPoint.i, startingPoint.j, startingPoint.i * jLength + startingPoint.j, m)
         };
 
-        //ConcurrentDictionary<int, Context> toBeAdded = new ConcurrentDictionary<int, Context>(3, m.Length);
         Context?[] toBeAdded = new Context?[m.Length];
         List<int> toBeAddedIndex = new List<int>(m.Length);
         var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j, null);
+        int diagonal = (int)(Math.Sqrt(Math.Pow(endingPoint.i + 1, 2) + Math.Pow(endingPoint.j + 1, 2)) * 1.5);
         int step = 0;
-        //var source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
         while (true)
         {
             Parallel.ForEach(contexts, new ParallelOptions { MaxDegreeOfParallelism = 12 }, element =>
@@ -87,17 +86,9 @@ internal class Program
                 // Current path is replaced by new paths
                 AddLifeConsumingPossiblePaths(element, smr, toBeAdded, toBeAddedIndex, jLength, mr);
             }
-            //);
-            // if touched final destination, solution is found
             if (toBeAdded[final.Offset] is Context found)
             {
                 return ExtractSteps(found);
-                //if(source.IsCancellationRequested)
-                //{
-                //    last = ExtractSteps(found);
-                //    Console.WriteLine($"Solution: {last} ({last.Length})");
-                //    source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-                //}
             }
             // Remove deadends and replaced paths
             foreach (var context in contexts)
@@ -110,18 +101,14 @@ internal class Program
             // Add new paths
             foreach (var index in toBeAddedIndex)
             {
-                //Console.WriteLine($"Step: {step} - {ExtractSteps(element.Value)}");
                 var element = toBeAdded[index];
                 contexts.Add(element);
                 toBeAdded[index] = null;
             }
             toBeAddedIndex.Clear();
-            step++;
-            long memoryMegs = Process.GetCurrentProcess().WorkingSet64 / 1024 / 1024;
-            Console.WriteLine($"Step: {step}, living contexts: {contexts.Count}, Memory: {memoryMegs}");
-            if (contexts.Count > 2000)
+            if (contexts.Count > diagonal)
             {
-                var itens = contexts.OrderByDescending(c => c.J + c.I).Skip(2000).ToArray();
+                var itens = contexts.OrderByDescending(c => c.J + c.I).Skip(diagonal).ToArray();
                 foreach (var item in itens)
                     contexts.Remove(item);
             }

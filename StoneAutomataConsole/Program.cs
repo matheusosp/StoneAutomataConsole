@@ -16,13 +16,13 @@ internal class Program
     private static void Main(string[] args) 
     {
         string basePath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        string filePath = Path.Combine(basePath, "input.txt");
+        string filePath = Path.Combine(basePath, "input1.txt");
         string result = null;
         Stopwatch sw = new Stopwatch();
         long sum = 0;
         long min = long.MaxValue;
         long max = long.MinValue;
-        int loop = 1000;
+        int loop = 1;
         byte[,] m = null;
         for (int i = 0; i < loop; i++)
         {
@@ -56,6 +56,8 @@ internal class Program
         Context?[] toBeAdded = new Context?[m.Length];
         List<int> toBeAddedIndex = new List<int>(m.Length);
 
+        int diagonal = (int)(Math.Sqrt(Math.Pow(endingPoint.i + 1, 2) + Math.Pow(endingPoint.j + 1, 2)) * 1.5);
+        int step = 0;
         byte[,] mr = new byte[iLength, jLength];
         var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
         while (true)
@@ -84,7 +86,14 @@ internal class Program
                 toBeAdded[index] = null;
             }
             toBeAddedIndex.Clear();
-
+            
+            step++;
+            if (contexts.Count > diagonal)
+            {
+                var itens = contexts.OrderByDescending(c => c.J + c.I).Skip(diagonal).ToArray();
+                foreach (var item in itens)
+                    contexts.Remove(item);
+            }
             // No more paths to take
             if (contexts.Count == 0)
             {

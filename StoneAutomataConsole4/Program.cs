@@ -59,6 +59,8 @@ internal class Program
         Context? last = null;
         byte[,] mr = new byte[iLength, jLength];
         var final = new Context(' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
+        int diagonal = (int)(Math.Sqrt(Math.Pow(endingPoint.i + 1, 2) + Math.Pow(endingPoint.j + 1, 2)) * 1.5);
+        int step = 0;
         while (true)
         {
             NextGen(m, mr, jLength);
@@ -89,7 +91,13 @@ internal class Program
                 toBeAdded[index] = null;
             }
             toBeAddedIndex.Clear();
-
+            step++;
+            if (contexts.Count > diagonal)
+            {
+                var itens = contexts.OrderByDescending(c => c.J + c.I).Skip(diagonal).ToArray();
+                foreach (var item in itens)
+                    contexts.Remove(item);
+            }
             // No more paths to take
             if (contexts.Count == 0)
             {

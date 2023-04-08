@@ -24,7 +24,7 @@ internal class Program
         long max = long.MinValue;
         int loop = 1;
         byte[,] m = null;
-        int steps = 49990;
+        int steps = 49991;
         for (int i = 0; i < loop; i++)
         {
             m = ParseFile(filePath);
@@ -33,17 +33,13 @@ internal class Program
             var context = FindContext(m, steps);
             m = ParseFile(filePath);
             var stat = ExtractStatistics(context, m);
-            Console.WriteLine(stat.Boards.Count);
             for (int generation = 2; generation < stat.Boards.Count; generation++)
             {
                 TryAppendIncrementalContext(generation, stat);
             }
-            using (var output = File.CreateText(Path.Combine(basePath, "output5.txt")))
+            foreach (var item in stat.Paths)
             {
-                foreach (var item in stat.Paths)
-                {
-                    output.WriteLine(item);
-                }
+                Console.WriteLine(item);
             }
             sw.Stop();
             sum += sw.ElapsedTicks;
@@ -52,13 +48,10 @@ internal class Program
         }
         Console.WriteLine($"Size: {endingBound.i + 1}x{endingBound.j + 1}");
         Console.WriteLine($"Avg: {TimeSpan.FromTicks(sum / loop)}, Min: {TimeSpan.FromTicks(min)}, Max: {TimeSpan.FromTicks(max)}");
-        Console.WriteLine($"Steps ({result.Split(' ').Length}): {result}");
     }
 
     static Context FindContext(byte[,] m, int steps)
     {
-        string last = null;
-        int solutions = 0;
         int iLength = m.GetUpperBound(0) + 1;
         int jLength = m.GetUpperBound(1) + 1;
 
@@ -70,18 +63,16 @@ internal class Program
             new Context(0, ' ', startingPoint.i, startingPoint.j, startingPoint.i * jLength + startingPoint.j)
         };
 
-        //ConcurrentDictionary<int, Context> toBeAdded = new ConcurrentDictionary<int, Context>(3, m.Length);
         Context?[] toBeAdded = new Context?[m.Length];
         List<int> toBeAddedIndex = new List<int>(m.Length);
 
         byte[,] mr = new byte[iLength, jLength];
         var final = new Context(0, ' ', endingPoint.i, endingPoint.j, endingPoint.i * jLength + endingPoint.j);
-        //var source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-        //int step = 0;
+        int diagonal = (int)(Math.Sqrt(Math.Pow(endingPoint.i + 1, 2) + Math.Pow(endingPoint.j + 1, 2)) * 1.5);
+        int step = 0;
         while (true)
         {
             NextGen(m, mr, jLength);
-            //Parallel.ForEach(contexts, new ParallelOptions { MaxDegreeOfParallelism = 4 }, element =>
             var smr = MemoryMarshal.CreateSpan(ref mr[0, 0], mr.Length);
             var s = CollectionsMarshal.AsSpan(contexts);
             for (int i = 0; i < s.Length; i++)
@@ -90,23 +81,15 @@ internal class Program
                 // Current path is replaced by new paths
                 AddPossiblePaths(element, smr, toBeAdded, toBeAddedIndex, jLength);
             }
-            //);
             // if touched final destination, solution is found
             if (toBeAdded[final.Offset] is Context found)
             {
                 if (Count(found) >= steps)
                     return found;
-                //if(source.IsCancellationRequested)
-                //{
-                //    last = ExtractSteps(found);
-                //    Console.WriteLine($"Solution: {last} ({last.Length})");
-                //    source = new CancellationTokenSource(TimeSpan.FromMinutes(10));
-                //}
             }
             // Remove deadends and replaced paths
             contexts.Clear();
 
-            //step++;
             // Add new paths
             foreach (var index in toBeAddedIndex)
             {
@@ -116,6 +99,14 @@ internal class Program
                 toBeAdded[index] = null;
             }
             toBeAddedIndex.Clear();
+
+            step++;
+            if (contexts.Count > diagonal)
+            {
+                var itens = contexts.OrderByDescending(c => c.J + c.I).Skip(diagonal).ToArray();
+                foreach (var item in itens)
+                    contexts.Remove(item);
+            }
 
             // No more paths to take
             if (contexts.Count == 0)
@@ -142,6 +133,8 @@ internal class Program
         Context?[] toBeAdded = new Context?[m.Length];
         List<int> toBeAddedIndex = new List<int>(m.Length);
         Context? last = null;
+        int diagonal = (int)(Math.Sqrt(Math.Pow(endingPoint.i + 1, 2) + Math.Pow(endingPoint.j + 1, 2)) * 1.5);
+        int step = 0;
         for (int boardIndex = initial; boardIndex < statistics.Boards.Count; boardIndex++)
         {
             var mr = statistics.Boards[boardIndex];
@@ -171,6 +164,13 @@ internal class Program
                 toBeAdded[index] = null;
             }
             toBeAddedIndex.Clear();
+            step++;
+            if (contexts.Count > diagonal)
+            {
+                var itens = contexts.OrderByDescending(c => c.J + c.I).Skip(diagonal).ToArray();
+                foreach (var item in itens)
+                    contexts.Remove(item);
+            }
         }
         if (last != null)
         {
