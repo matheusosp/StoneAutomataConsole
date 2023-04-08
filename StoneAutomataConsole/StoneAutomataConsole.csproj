@@ -17,4 +17,15 @@
 	<PublishTrimmed>true</PublishTrimmed>
 	<IlcInstructionSet>avx2,bmi2,fma,pclmul,popcnt,aes</IlcInstructionSet>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="input.txt" />
+    <EmbeddedResource Include="input.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <None Remove="input1.txt" />
+    <EmbeddedResource Include="input1.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>
